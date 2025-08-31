@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ServerList from './lib/components/ServerList.svelte'
+  import MCPServerManager from './lib/components/MCPServerManager.svelte'
 </script>
 
 <main>
@@ -8,7 +8,7 @@
     <p>MCP Server Management Platform</p>
   </header>
 
-  <ServerList />
+  <MCPServerManager />
 </main>
 
 <style>
