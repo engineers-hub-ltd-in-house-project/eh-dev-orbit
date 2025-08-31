@@ -27,6 +27,18 @@
   let expandedServers: Set<string> = new Set()
   let loading = false
   let error = ''
+  let showAddForm = false
+
+  // Form data for new server
+  let newServer = {
+    id: '',
+    name: '',
+    type: 'stdio' as 'stdio' | 'sse' | 'http',
+    command: '',
+    args: '',
+    url: '',
+    env: '',
+  }
 
   const API_BASE = 'http://localhost:3000/api'
 
@@ -161,6 +173,87 @@
     }
   }
 
+  async function addServer() {
+    loading = true
+    error = ''
+    try {
+      const serverConfig: MCPServer = {
+        id: newServer.id,
+        name: newServer.name,
+        type: newServer.type,
+        command: newServer.type === 'stdio' ? newServer.command : undefined,
+        args: newServer.type === 'stdio' && newServer.args ? newServer.args.split(' ') : undefined,
+        url: newServer.type !== 'stdio' ? newServer.url : undefined,
+        env: newServer.env ? JSON.parse(newServer.env) : undefined,
+      }
+
+      const response = await fetch(`${API_BASE}/servers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(serverConfig),
+      })
+
+      if (response.ok) {
+        showAddForm = false
+        resetNewServerForm()
+        await loadServers()
+      } else {
+        const data = await response.json()
+        error = data.error || 'Failed to add server'
+      }
+    } catch (err) {
+      error = 'Failed to add server'
+      console.error(err)
+    } finally {
+      loading = false
+    }
+  }
+
+  async function deleteServer(serverId: string) {
+    if (!window.confirm(`Delete server ${serverId}?`)) {
+      return
+    }
+
+    loading = true
+    error = ''
+    try {
+      // Disconnect first if connected
+      if (connectionStatus[serverId]) {
+        await disconnectFromServer(serverId)
+      }
+
+      const response = await fetch(`${API_BASE}/servers/${serverId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        await loadServers()
+      } else {
+        const data = await response.json()
+        error = data.error || 'Failed to delete server'
+      }
+    } catch (err) {
+      error = 'Failed to delete server'
+      console.error(err)
+    } finally {
+      loading = false
+    }
+  }
+
+  function resetNewServerForm() {
+    newServer = {
+      id: '',
+      name: '',
+      type: 'stdio',
+      command: '',
+      args: '',
+      url: '',
+      env: '',
+    }
+  }
+
   onMount(() => {
     loadServers()
   })
@@ -169,7 +262,12 @@
 <div class="mcp-server-manager">
   <div class="header">
     <h2>MCP Server Manager</h2>
-    <button onclick={() => loadServers()} disabled={loading}> Refresh </button>
+    <div class="header-actions">
+      <button onclick={() => (showAddForm = !showAddForm)} disabled={loading}>
+        {showAddForm ? 'Cancel' : 'Add Server'}
+      </button>
+      <button onclick={() => loadServers()} disabled={loading}> Refresh </button>
+    </div>
   </div>
 
   {#if error}
@@ -178,6 +276,98 @@
 
   {#if loading}
     <div class="loading">Loading...</div>
+  {/if}
+
+  {#if showAddForm}
+    <div class="add-form">
+      <h3>Add New MCP Server</h3>
+      <form
+        onsubmit={(e) => {
+          e.preventDefault()
+          addServer()
+        }}
+      >
+        <div class="form-group">
+          <label for="server-id">Server ID</label>
+          <input
+            id="server-id"
+            type="text"
+            bind:value={newServer.id}
+            required
+            placeholder="my-server"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="server-name">Server Name</label>
+          <input
+            id="server-name"
+            type="text"
+            bind:value={newServer.name}
+            required
+            placeholder="My MCP Server"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="server-type">Server Type</label>
+          <select id="server-type" bind:value={newServer.type}>
+            <option value="stdio">STDIO</option>
+            <option value="sse">SSE</option>
+            <option value="http">HTTP</option>
+          </select>
+        </div>
+
+        {#if newServer.type === 'stdio'}
+          <div class="form-group">
+            <label for="server-command">Command</label>
+            <input
+              id="server-command"
+              type="text"
+              bind:value={newServer.command}
+              required
+              placeholder="node"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="server-args">Arguments (space-separated)</label>
+            <input
+              id="server-args"
+              type="text"
+              bind:value={newServer.args}
+              placeholder="server.js --port 3000"
+            />
+          </div>
+        {:else}
+          <div class="form-group">
+            <label for="server-url">URL</label>
+            <input
+              id="server-url"
+              type="url"
+              bind:value={newServer.url}
+              required
+              placeholder="http://localhost:3000"
+            />
+          </div>
+        {/if}
+
+        <div class="form-group">
+          <label for="server-env">Environment Variables (JSON)</label>
+          <textarea
+            id="server-env"
+            bind:value={newServer.env}
+            placeholder={'{"NODE_ENV": "production"}'}
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" disabled={loading}>Add Server</button>
+          <button type="button" onclick={() => (showAddForm = false)}>Cancel</button>
+        </div>
+      </form>
+    </div>
   {/if}
 
   <div class="servers">
@@ -201,6 +391,7 @@
             {:else}
               <button onclick={() => connectToServer(server.id)}> Connect </button>
             {/if}
+            <button class="delete-button" onclick={() => deleteServer(server.id)}> Delete </button>
           </div>
         </div>
 
@@ -266,6 +457,11 @@
   .header h2 {
     margin: 0;
     font-size: 1.5rem;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
   }
 
   .error {
@@ -432,5 +628,60 @@
   button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  .add-form {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .add-form h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .form-group textarea {
+    resize: vertical;
+    font-family: monospace;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .delete-button {
+    background: #dc3545;
+    border-color: #dc3545;
+  }
+
+  .delete-button:hover {
+    background: #c82333;
+    border-color: #bd2130;
   }
 </style>
