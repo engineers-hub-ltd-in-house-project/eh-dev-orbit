@@ -1,0 +1,36 @@
+# lefthook configuration
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      glob: '**/*.{js,ts,tsx,json,md,yml,yaml,svelte}'
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    eslint-api:
+      root: api/
+      glob: '**/*.{ts,js}'
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
+
+    eslint-web:
+      root: web/
+      glob: '**/*.{ts,js,svelte}'
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
+
+    markdownlint:
+      glob: '**/*.md'
+      run: npx markdownlint --fix {staged_files}
+      stage_fixed: true
+
+pre-push:
+  parallel: false
+  commands:
+    test-all:
+      run: |
+        echo "Running all tests..."
+        cd api && npm test
+        cd ../web && npm test

@@ -1,0 +1,22 @@
+{
+  "name": "eh-dev-orbit",
+  "version": "0.1.0",
+  "description": "MCP server management platform",
+  "scripts": {
+    "format": "prettier --write '**/*.{js,ts,tsx,json,md,yml,yaml,svelte}'",
+    "lint": "npm run lint:api && npm run lint:web && npm run lint:md",
+    "lint:api": "cd api && npx eslint src test --ext .ts",
+    "lint:web": "cd web && npx eslint src --ext .ts,.svelte",
+    "lint:md": "markdownlint '**/*.md'",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "cd api && npm test",
+    "test:web": "cd web && npm test",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "lefthook": "^1.12.3",
+    "markdownlint-cli": "^0.45.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-svelte": "^3.4.0"
+  }
+}
